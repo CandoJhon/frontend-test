@@ -15,7 +15,7 @@ app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-i
 
 # Initialize IBM App ID
 app_id_auth = AppIDAuth(
-    region=os.getenv("APPID_REGION", "us-south"),
+    region=os.getenv("APPID_REGION", "us-east"),
     tenant_id=os.getenv("APPID_TENANT_ID"),
     client_id=os.getenv("APPID_CLIENT_ID"),
     secret=os.getenv("APPID_SECRET")
