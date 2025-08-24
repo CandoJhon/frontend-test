@@ -1,0 +1,81 @@
+{% extends base.html %}
+
+{% block title %}Login - Frontend Test App{% endblock %}
+
+{% block content %}
+div class=row justify-content-center
+    div class=col-md-6
+        div class=card
+            div class=card-header text-center
+                h3Login with IBM App IDh3
+            div
+            div class=card-body text-center
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            div class=alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show role=alert
+                                {{ message }}
+                                button type=button class=btn-close data-bs-dismiss=alertbutton
+                            div
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+                
+                {% if error %}
+                    div class=alert alert-danger role=alert
+                        strongErrorstrong {{ error }}
+                    div
+                {% endif %}
+                
+                p class=leadPlease sign in to access protected contentp
+                
+                {% if login_url %}
+                    a href={{ login_url }} class=btn btn-primary btn-lg
+                        i class=fas fa-sign-in-alti Login with IBM App ID
+                    a
+                {% else %}
+                    div class=alert alert-warning role=alert
+                        strongConfiguration Errorstrong IBM App ID is not properly configured.
+                    div
+                {% endif %}
+                
+                hr class=my-4
+                
+                div class=text-muted
+                    small
+                        strongNotestrong You will be redirected to IBM App ID authentication service.
+                    small
+                div
+            div
+        div
+        
+        div class=card mt-4
+            div class=card-header
+                h5About IBM App IDh5
+            div
+            div class=card-body
+                pIBM App ID is a secure authentication service that providesp
+                ul class=list-unstyled
+                    lii class=fas fa-check text-successi Multi-factor authenticationli
+                    lii class=fas fa-check text-successi Social login integrationli
+                    lii class=fas fa-check text-successi Enterprise directory supportli
+                    lii class=fas fa-check text-successi Advanced security featuresli
+                ul
+            div
+        div
+    div
+div
+{% endblock %}
+
+{% block scripts %}
+script
+ Auto-dismiss alerts after 5 seconds
+setTimeout(() = {
+    const alerts = document.querySelectorAll('.alert-dismissible');
+    alerts.forEach(alert = {
+        const closeBtn = alert.querySelector('.btn-close');
+        if (closeBtn) closeBtn.click();
+    });
+}, 5000);
+script
+{% endblock %}
