@@ -1,41 +1,36 @@
-# Use Alpine-based Python image (often better for cryptography)
-FROM python:3.11-alpine
+# Use official Python runtime as parent image  
+FROM python:3.11
 
-# Set working directory
+# Set the working directory
 WORKDIR /app
 
-# Install system dependencies for Alpine including Rust
-RUN apk add --no-cache \
-    gcc \
-    musl-dev \
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
     libffi-dev \
-    openssl-dev \
-    python3-dev \
-    build-base \
-    rust \
-    cargo \
-    curl
+    libssl-dev \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
-# Upgrade pip
-RUN pip install --upgrade pip
+# Copy requirements file
+COPY requirements.txt ./
 
-# Copy requirements first
-COPY requirements.txt .
+# Install dependencies
+RUN pip install --upgrade pip && \
+    pip install -r requirements.txt
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy application code
+# Copy the current directory contents into the container
 COPY . .
 
-# Create auth directory and __init__.py
-RUN mkdir -p auth && echo "# Auth module" > auth/__init__.py
+# Create necessary directories and ensure __init__.py exists
+RUN mkdir -p auth templates static/css static/js && \
+    echo "# Auth module" > auth/__init__.py
 
 # Expose port
-EXPOSE 8080
+EXPOSE 5000
 
 # Environment variables
-ENV PORT=8080
+ENV PORT=5000
 
 # Run the application
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["python", "app.py"]
