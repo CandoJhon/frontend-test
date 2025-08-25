@@ -44,9 +44,8 @@ def login():
         return redirect(url_for('profile'))
     
     try:
-        login_url = app_id_auth.get_login_url(
-            redirect_uri=url_for('auth_callback', _external=True)
-        )
+        redirect_uri = os.getenv("APPID_REDIRECT_URI") or url_for('auth_callback', _external=True)
+        login_url = app_id_auth.get_login_url(redirect_uri=redirect_uri)
         return render_template('login.html', login_url=login_url)
     except Exception as e:
         logger.error(f"Error generating login URL: {e}")
@@ -69,10 +68,8 @@ def auth_callback():
     
     try:
         # Exchange code for tokens
-        tokens = app_id_auth.exchange_code_for_tokens(
-            code, 
-            redirect_uri=url_for('auth_callback', _external=True)
-        )
+        redirect_uri = os.getenv("APPID_REDIRECT_URI") or url_for('auth_callback', _external=True)
+        tokens = app_id_auth.exchange_code_for_tokens(code, redirect_uri=redirect_uri)
         
         # Get user info
         user_info = app_id_auth.get_user_info(tokens['access_token'])
@@ -120,11 +117,11 @@ def protected_api():
     headers = {'Authorization': f'Bearer {access_token}'}
     
     try:
-        response = requests.get(f'{backend_url}/api/protected', headers=headers)
+        response = requests.get(f'{backend_url}/api/protected', headers=headers, timeout=10)
         if response.status_code == 200:
             backend_data = response.json()
         else:
-            backend_data = {"error": "Failed to fetch from backend"}
+            backend_data = {"error": f"Backend responded with {response.status_code}"}
     except Exception as e:
         backend_data = {"error": str(e)}
     
@@ -132,6 +129,18 @@ def protected_api():
         "message": "Frontend protected endpoint",
         "user": user_info,
         "backend_data": backend_data
+    })
+
+@app.route('/api/public')
+def public_api():
+    """Public API endpoint"""
+    return jsonify({
+        "message": "This is a public endpoint",
+        "authenticated": 'access_token' in session,
+        "data": [
+            {"id": 1, "title": "Public Item 1"},
+            {"id": 2, "title": "Public Item 2"}
+        ]
     })
 
 @app.route('/health')
@@ -151,6 +160,7 @@ def not_found(error):
 @app.errorhandler(500)
 def internal_error(error):
     """Handle 500 errors"""
+    logger.error(f"Internal error: {error}")
     return render_template('500.html'), 500
 
 if __name__ == '__main__':
