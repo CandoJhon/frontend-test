@@ -154,7 +154,7 @@ def auth_callback():
         flash(f"Authentication failed: {e}", 'error')
         return redirect(url_for('login'))
     
-    
+
 
 
 @app.route('/logout')
@@ -189,19 +189,22 @@ def profile():
         </html>
         """
 
+#route with user verification
 @app.route('/api/protected')
 @login_required
 def protected_api():
-    """Protected API endpoint"""
-    access_token = session.get('access_token')
+    """Protected API endpoint using user ID verification"""
     user_info = session.get('user_info')
+    user_id = user_info.get('sub')  # IBM App ID user ID
     
-    # Call backend API with token
+    # Send user ID to backend instead of token
     backend_url = os.getenv('BACKEND_URL', 'http://localhost:8080')
-    headers = {'Authorization': f'Bearer {access_token}'}
     
     try:
-        response = requests.get(f'{backend_url}/api/protected', headers=headers, timeout=30)
+        response = requests.post(f'{backend_url}/api/verify-user', 
+                               json={'user_id': user_id}, 
+                               timeout=10)
+        
         if response.status_code == 200:
             backend_data = response.json()
         else:
