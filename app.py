@@ -129,56 +129,49 @@ def login():
 # In frontend app.py, modify the auth_callback route:
 @app.route('/auth/callback')
 def auth_callback():
-    """Handle OAuth callback with detailed logging"""
+    """Diagnostic callback to find exact failure point"""
+    
+    # Step 1: Check code parameter
     code = request.args.get('code')
-    error = request.args.get('error')
-    
-    logger.info(f"Callback received - Code: {'Present' if code else 'Missing'}, Error: {error}")
-    
-    if error:
-        logger.error(f"OAuth error: {error}")
-        flash(f"Authentication error: {error}", 'error')
-        return redirect(url_for('login'))
-    
     if not code:
-        logger.error("No authorization code received")
-        flash("No authorization code received", 'error')
-        return redirect(url_for('login'))
+        return f"STEP 1 FAILED: No code parameter. Query params: {dict(request.args)}"
+    
+    # Step 2: Test backend connection
+    backend_url = os.getenv('BACKEND_URL')
+    if not backend_url:
+        return f"STEP 2 FAILED: No BACKEND_URL environment variable"
     
     try:
-        backend_url = os.getenv('BACKEND_URL', 'http://localhost:8080')
-        logger.info(f"Calling backend at: {backend_url}")
+        # Step 3: Call backend
+        response = requests.get(f'{backend_url}/auth/callback', params={'code': code}, timeout=10)
         
-        # Call backend callback
-        response = requests.get(f'{backend_url}/auth/callback', 
-                              params={'code': code}, 
-                              timeout=30)
+        if response.status_code != 200:
+            return f"STEP 3 FAILED: Backend returned {response.status_code}: {response.text}"
         
-        logger.info(f"Backend response status: {response.status_code}")
-        logger.info(f"Backend response: {response.text[:200]}...")
-        
-        if response.status_code == 200:
+        # Step 4: Parse response
+        try:
             auth_data = response.json()
-            logger.info(f"Backend auth successful: {auth_data.get('status')}")
-            
-            if auth_data.get('status') == 'success':
-                session['access_token'] = auth_data['access_token']
-                session['user_info'] = auth_data['user_info']
-                logger.info("Session data stored successfully")
-                flash('Successfully logged in!', 'success')
-                return redirect(url_for('profile'))
-            else:
-                logger.error(f"Backend auth failed: {auth_data}")
-                raise Exception(f"Backend returned: {auth_data}")
-        else:
-            logger.error(f"Backend request failed: {response.status_code}")
-            raise Exception(f"Backend responded with {response.status_code}")
-            
+        except:
+            return f"STEP 4 FAILED: Backend response not JSON: {response.text}"
+        
+        # Step 5: Check response format
+        if auth_data.get('status') != 'success':
+            return f"STEP 5 FAILED: Backend status not success: {auth_data}"
+        
+        # Step 6: Store session data
+        session['access_token'] = auth_data.get('access_token')
+        session['user_info'] = auth_data.get('user_info')
+        
+        # Step 7: Verify session storage
+        if 'access_token' not in session:
+            return f"STEP 7 FAILED: Session storage failed. Session keys: {list(session.keys())}"
+        
+        return f"SUCCESS: All steps passed. User: {session.get('user_info', {}).get('email', 'No email')}. Redirecting to profile..."
+        
     except Exception as e:
-        logger.error(f"Authentication callback failed: {str(e)}")
-        flash(f"Authentication failed: {str(e)}", 'error')
-        return redirect(url_for('login'))
-
+        return f"EXCEPTION: {str(e)}"
+    
+    
 @app.route('/logout')
 def logout():
     """Logout user"""
