@@ -188,7 +188,7 @@ def logout():
     return redirect(url_for('index'))
 
 @app.route('/profile')
-@login_required
+#@login_required
 def profile():
     """User profile page"""
     try:
