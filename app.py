@@ -129,49 +129,35 @@ def login():
 # In frontend app.py, modify the auth_callback route:
 @app.route('/auth/callback')
 def auth_callback():
-    """Diagnostic callback to find exact failure point"""
-    
-    # Step 1: Check code parameter
+    """Handle callback with proper code handling"""
     code = request.args.get('code')
     if not code:
-        return f"STEP 1 FAILED: No code parameter. Query params: {dict(request.args)}"
-    
-    # Step 2: Test backend connection
-    backend_url = os.getenv('BACKEND_URL')
-    if not backend_url:
-        return f"STEP 2 FAILED: No BACKEND_URL environment variable"
+        return "No code received"
     
     try:
-        # Step 3: Call backend
-        response = requests.get(f'{backend_url}/auth/callback', params={'code': code}, timeout=10)
+        backend_url = os.getenv('BACKEND_URL')
         
-        if response.status_code != 200:
-            return f"STEP 3 FAILED: Backend returned {response.status_code}: {response.text}"
+        # Pass code directly in URL instead of as parameter
+        callback_url = f'{backend_url}/auth/callback?code={code}'
         
-        # Step 4: Parse response
-        try:
+        # Use requests.get without additional params
+        response = requests.get(callback_url, timeout=10)
+        
+        if response.status_code == 200:
             auth_data = response.json()
-        except:
-            return f"STEP 4 FAILED: Backend response not JSON: {response.text}"
+            if auth_data.get('status') == 'success':
+                session['access_token'] = auth_data['access_token']
+                session['user_info'] = auth_data['user_info']
+                flash('Successfully logged in!', 'success')
+                return redirect(url_for('profile'))
         
-        # Step 5: Check response format
-        if auth_data.get('status') != 'success':
-            return f"STEP 5 FAILED: Backend status not success: {auth_data}"
-        
-        # Step 6: Store session data
-        session['access_token'] = auth_data.get('access_token')
-        session['user_info'] = auth_data.get('user_info')
-        
-        # Step 7: Verify session storage
-        if 'access_token' not in session:
-            return f"STEP 7 FAILED: Session storage failed. Session keys: {list(session.keys())}"
-        
-        return f"SUCCESS: All steps passed. User: {session.get('user_info', {}).get('email', 'No email')}. Redirecting to profile..."
+        return f"Backend failed: {response.text}"
         
     except Exception as e:
-        return f"EXCEPTION: {str(e)}"
+        return f"Error: {str(e)}"
     
-    
+        
+
 @app.route('/logout')
 def logout():
     """Logout user"""
