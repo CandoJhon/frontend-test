@@ -126,41 +126,35 @@ def login():
         logger.error(f"Error generating login URL: {e}")
         return jsonify({"error": str(e)}), 500
 
+# In frontend app.py, modify the auth_callback route:
 @app.route('/auth/callback')
 def auth_callback():
-    """Handle OAuth callback from IBM App ID"""
-    if not AUTH_ENABLED:
-        return jsonify({"error": "Authentication not configured"}), 500
-        
+    """Handle OAuth callback - use backend for token exchange"""
     code = request.args.get('code')
-    error = request.args.get('error')
-    
-    if error:
-        logger.error(f"Auth callback error: {error}")
-        return jsonify({"error": f"Authentication error: {error}"}), 400
-    
     if not code:
-        return jsonify({"error": "No authorization code received"}), 400
+        flash("No authorization code received", 'error')
+        return redirect(url_for('login'))
     
     try:
-        # Exchange code for tokens
-        redirect_uri = os.getenv("APPID_REDIRECT_URI") or url_for('auth_callback', _external=True)
-        tokens = app_id_auth.exchange_code_for_tokens(code, redirect_uri=redirect_uri)
+        # Call YOUR backend's callback endpoint instead of doing it directly
+        backend_url = os.getenv('BACKEND_URL', 'http://localhost:8080')
+        response = requests.get(f'{backend_url}/auth/callback', params={'code': code})
         
-        # Get user info
-        user_info = app_id_auth.get_user_info(tokens['access_token'])
+        if response.status_code == 200:
+            auth_data = response.json()
+            if auth_data.get('status') == 'success':
+                # Store the backend's tokens
+                session['access_token'] = auth_data['access_token']
+                session['user_info'] = auth_data['user_info']
+                flash('Successfully logged in!', 'success')
+                return redirect(url_for('profile'))
         
-        # Store in session
-        session['access_token'] = tokens['access_token']
-        session['refresh_token'] = tokens.get('refresh_token')
-        session['user_info'] = user_info
-        
-        logger.info(f"User logged in: {user_info.get('email', 'no-email')}")
-        return redirect(url_for('profile'))
+        raise Exception("Backend authentication failed")
         
     except Exception as e:
         logger.error(f"Authentication failed: {e}")
-        return jsonify({"error": f"Authentication failed: {str(e)}"}), 500
+        flash(f"Authentication failed: {e}", 'error')
+        return redirect(url_for('login'))
 
 @app.route('/logout')
 def logout():
