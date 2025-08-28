@@ -206,7 +206,7 @@ def protected_api():
     headers = {'Authorization': f'Bearer {access_token}'}
     
     try:
-        response = requests.get(f'{backend_url}/api/protected', headers=headers, timeout=10)
+        response = requests.get(f'{backend_url}/api/protected', headers=headers, timeout=30)
         if response.status_code == 200:
             backend_data = response.json()
         else:
