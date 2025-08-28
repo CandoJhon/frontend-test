@@ -129,34 +129,33 @@ def login():
 # In frontend app.py, modify the auth_callback route:
 @app.route('/auth/callback')
 def auth_callback():
-    """Handle callback with proper code handling"""
+    """Frontend handles its own OAuth callback"""
     code = request.args.get('code')
     if not code:
-        return "No code received"
+        flash("No authorization code received", 'error')
+        return redirect(url_for('login'))
     
     try:
-        backend_url = os.getenv('BACKEND_URL')
+        # Frontend does its own token exchange (this already works)
+        redirect_uri = os.getenv("APPID_REDIRECT_URI") or url_for('auth_callback', _external=True)
+        tokens = app_id_auth.exchange_code_for_tokens(code, redirect_uri=redirect_uri)
+        user_info = app_id_auth.get_user_info(tokens['access_token'])
         
-        # Pass code directly in URL instead of as parameter
-        callback_url = f'{backend_url}/auth/callback?code={code}'
+        # Store frontend session
+        session['access_token'] = tokens['access_token']
+        session['refresh_token'] = tokens.get('refresh_token')
+        session['user_info'] = user_info
         
-        # Use requests.get without additional params
-        response = requests.get(callback_url, timeout=10)
-        
-        if response.status_code == 200:
-            auth_data = response.json()
-            if auth_data.get('status') == 'success':
-                session['access_token'] = auth_data['access_token']
-                session['user_info'] = auth_data['user_info']
-                flash('Successfully logged in!', 'success')
-                return redirect(url_for('profile'))
-        
-        return f"Backend failed: {response.text}"
+        flash('Successfully logged in!', 'success')
+        return redirect(url_for('profile'))
         
     except Exception as e:
-        return f"Error: {str(e)}"
+        logger.error(f"Authentication failed: {e}")
+        flash(f"Authentication failed: {e}", 'error')
+        return redirect(url_for('login'))
     
-        
+    
+
 
 @app.route('/logout')
 def logout():
@@ -167,7 +166,7 @@ def logout():
     return redirect(url_for('index'))
 
 @app.route('/profile')
-#@login_required
+@login_required
 def profile():
     """User profile page"""
     try:
