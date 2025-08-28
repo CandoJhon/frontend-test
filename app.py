@@ -129,31 +129,54 @@ def login():
 # In frontend app.py, modify the auth_callback route:
 @app.route('/auth/callback')
 def auth_callback():
-    """Handle OAuth callback - use backend for token exchange"""
+    """Handle OAuth callback with detailed logging"""
     code = request.args.get('code')
+    error = request.args.get('error')
+    
+    logger.info(f"Callback received - Code: {'Present' if code else 'Missing'}, Error: {error}")
+    
+    if error:
+        logger.error(f"OAuth error: {error}")
+        flash(f"Authentication error: {error}", 'error')
+        return redirect(url_for('login'))
+    
     if not code:
+        logger.error("No authorization code received")
         flash("No authorization code received", 'error')
         return redirect(url_for('login'))
     
     try:
-        # Call YOUR backend's callback endpoint instead of doing it directly
         backend_url = os.getenv('BACKEND_URL', 'http://localhost:8080')
-        response = requests.get(f'{backend_url}/auth/callback', params={'code': code})
+        logger.info(f"Calling backend at: {backend_url}")
+        
+        # Call backend callback
+        response = requests.get(f'{backend_url}/auth/callback', 
+                              params={'code': code}, 
+                              timeout=30)
+        
+        logger.info(f"Backend response status: {response.status_code}")
+        logger.info(f"Backend response: {response.text[:200]}...")
         
         if response.status_code == 200:
             auth_data = response.json()
+            logger.info(f"Backend auth successful: {auth_data.get('status')}")
+            
             if auth_data.get('status') == 'success':
-                # Store the backend's tokens
                 session['access_token'] = auth_data['access_token']
                 session['user_info'] = auth_data['user_info']
+                logger.info("Session data stored successfully")
                 flash('Successfully logged in!', 'success')
                 return redirect(url_for('profile'))
-        
-        raise Exception("Backend authentication failed")
-        
+            else:
+                logger.error(f"Backend auth failed: {auth_data}")
+                raise Exception(f"Backend returned: {auth_data}")
+        else:
+            logger.error(f"Backend request failed: {response.status_code}")
+            raise Exception(f"Backend responded with {response.status_code}")
+            
     except Exception as e:
-        logger.error(f"Authentication failed: {e}")
-        flash(f"Authentication failed: {e}", 'error')
+        logger.error(f"Authentication callback failed: {str(e)}")
+        flash(f"Authentication failed: {str(e)}", 'error')
         return redirect(url_for('login'))
 
 @app.route('/logout')
